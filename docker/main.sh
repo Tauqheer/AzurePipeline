@@ -8,7 +8,7 @@ storageAccountName="azulstorage1"
 containerName="dailydata"
 blobName="${file_name}"
 filePath="${file_name}"
-accessKey="nAz/FF2d7Sghvlchy20b1JV3chLSIA/ug8zD2ZF/Wxz01d+zNgaeLV4bGsbrXsfOaumHNJ3HiRtS+AStRepxHw=="
+accessKey="xyz"
 
 echo "Executing script..."
 curl 'https://api.coinbase.com/v2/exchange-rates' > "$temp_file"
