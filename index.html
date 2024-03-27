@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Data Display</title>
+</head>
+<body>
+    <h1>Text Data Display</h1>
+
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Currency</th>
+                <th>Rate Code</th>
+            </tr>
+        </thead>
+        <tbody id="data-body">
+            <!-- Data will be populated here -->
+        </tbody>
+    </table>
+
+    <script>
+        // Function to fetch text data and populate the table
+        async function fetchTextData() {
+            const response = await fetch('dbo.deso_view.txt');
+            const data = await response.text();
+
+            // Split text into lines
+            const lines = data.split('\n');
+
+            // Iterate through lines
+            for (let i = 1; i < lines.length; i++) { // Start from index 1 to skip the header row
+                const columns = lines[i].split(',');
+
+                // Remove quotes from each value
+                const currency = columns[0].replace(/"/g, '');
+                const rateCode = columns[1].replace(/"/g, '');
+
+                // Create a new table row
+                const tr = document.createElement('tr');
+
+                // Create table data elements for currency and rate code
+                const currencyTd = document.createElement('td');
+                currencyTd.textContent = currency;
+                tr.appendChild(currencyTd);
+
+                const rateCodeTd = document.createElement('td');
+                rateCodeTd.textContent = rateCode;
+                tr.appendChild(rateCodeTd);
+
+                // Add the row to the table body
+                document.getElementById('data-body').appendChild(tr);
+            }
+        }
+
+        // Call the function to fetch and display text data
+        fetchTextData();
+    </script>
+</body>
+</html>
