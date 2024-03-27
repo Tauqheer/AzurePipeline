@@ -1,0 +1,26 @@
+{
+	"name": "SqlPoolTable1",
+	"properties": {
+		"annotations": [],
+		"type": "SqlPoolTable",
+		"schema": [
+			{
+				"name": "currency",
+				"type": "varchar"
+			},
+			{
+				"name": "rate_code",
+				"type": "varchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "deso_view"
+		},
+		"sqlPool": {
+			"referenceName": "azulextrac",
+			"type": "SqlPoolReference"
+		}
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}

@@ -1,0 +1,17 @@
+{
+	"name": "SQL script 3",
+	"properties": {
+		"content": {
+			"query": "SELECT TOP (100) [currency]\n,[rate_code]\n,[rate_value]\n FROM [dbo].[data]",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "azulextrac",
+				"poolName": "azulextrac"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

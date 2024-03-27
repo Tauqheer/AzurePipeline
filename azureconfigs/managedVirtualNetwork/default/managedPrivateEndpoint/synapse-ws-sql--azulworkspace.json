@@ -1,0 +1,10 @@
+{
+	"name": "synapse-ws-sql--azulworkspace",
+	"properties": {
+		"privateLinkResourceId": "/subscriptions/ce629e92-6625-4cb5-aa33-dfcdc4a2afe0/resourceGroups/azul/providers/Microsoft.Synapse/workspaces/azulworkspace",
+		"groupId": "sql",
+		"fqdns": [
+			"azulworkspace.3edc34f0-ca8e-4692-8397-72e901ad165d.sql.azuresynapse.net"
+		]
+	}
+}
