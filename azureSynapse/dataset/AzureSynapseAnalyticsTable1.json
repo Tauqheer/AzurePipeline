@@ -1,0 +1,30 @@
+{
+	"name": "AzureSynapseAnalyticsTable1",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureSynapseAnalytics2",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlDWTable",
+		"schema": [
+			{
+				"name": "currency",
+				"type": "varchar"
+			},
+			{
+				"name": "rate_code",
+				"type": "varchar"
+			},
+			{
+				"name": "rate_value",
+				"type": "varchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "data"
+		}
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}

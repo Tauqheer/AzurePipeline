@@ -1,0 +1,7 @@
+{
+	"name": "synapse-ws-custstgacct--azulworkspace-dailydataset",
+	"properties": {
+		"privateLinkResourceId": "/subscriptions/ce629e92-6625-4cb5-aa33-dfcdc4a2afe0/resourceGroups/azul/providers/Microsoft.Storage/storageAccounts/dailydataset",
+		"groupId": "dfs"
+	}
+}
