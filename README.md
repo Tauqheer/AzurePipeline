@@ -2,7 +2,7 @@
 
 ## Overview
 
-This Azure pipeline is designed to automate the process of pulling hourly datasets through API, pushing them to Azure Blob Storage, loading into an Azure Synapse SQL Pool, creating a view, and presenting the data on a web application.
+This Azure pipeline is designed to automate the process of pulling hourly datasets through API extracting DESO crypto every hour against USD, pushing them to Azure Blob Storage, loading into an Azure Synapse SQL Pool, creating a view, and presenting the data on a web application.
 
 ## Pipeline Steps
 
@@ -19,7 +19,7 @@ This Azure pipeline is designed to automate the process of pulling hourly datase
    - Tools/Services Used: Azure Synapse SQL Pool,Azure Synapse Analytics and Azure Functions.
 
 4. **Creating View in Azure Synapse SQL Pool**:
-   - Description: Defines a SQL view to extract specific data from the loaded datasets and pushed back to blob storage.
+   - Description: Defines a SQL view to extract DESO Currency value against USD from loaded datasets and pushed back to blob storage.
    - Tools/Services Used: SQL script executed in Azure Synapse SQL Pool and Azure Functions.
 
 5. **Presenting Data on Web Application**:
