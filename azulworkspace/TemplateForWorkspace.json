@@ -1,0 +1,3626 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"workspaceName": {
+			"type": "string",
+			"metadata": "Workspace name",
+			"defaultValue": "azulworkspace"
+		},
+		"AzureBlobStorage1_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'AzureBlobStorage1'"
+		},
+		"AzureSynapseAnalytics2_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'AzureSynapseAnalytics2'"
+		},
+		"azulworkspace-WorkspaceDefaultSqlServer_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'azulworkspace-WorkspaceDefaultSqlServer'",
+			"defaultValue": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=tcp:azulworkspace.sql.azuresynapse.net,1433;Initial Catalog=@{linkedService().DBName}"
+		},
+		"AzureBlobStorage2_sasUri": {
+			"type": "secureString",
+			"metadata": "Secure string for 'sasUri' of 'AzureBlobStorage2'"
+		},
+		"azulworkspace-WorkspaceDefaultStorage_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://dailydataset.dfs.core.windows.net"
+		}
+	},
+	"variables": {
+		"workspaceId": "[concat('Microsoft.Synapse/workspaces/', parameters('workspaceName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('workspaceName'), '/Pipeline 1')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "synapsetoblob",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlPoolSource",
+								"queryTimeout": "02:00:00"
+							},
+							"sink": {
+								"type": "DelimitedTextSink",
+								"storeSettings": {
+									"type": "AzureBlobStorageWriteSettings",
+									"copyBehavior": "PreserveHierarchy"
+								},
+								"formatSettings": {
+									"type": "DelimitedTextWriteSettings",
+									"quoteAllText": true,
+									"fileExtension": ".txt"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "SqlPoolTable1",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DelimitedText1",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2024-03-26T18:53:49Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/SqlPoolTable1')]",
+				"[concat(variables('workspaceId'), '/datasets/DelimitedText1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/blobtosynapse')]",
+			"type": "Microsoft.Synapse/workspaces/pipelines",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"activities": [
+					{
+						"name": "blobtosynapse",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "DelimitedTextSource",
+								"storeSettings": {
+									"type": "AzureBlobStorageReadSettings",
+									"recursive": true,
+									"wildcardFileName": "data_2024-03-*_*.csv",
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							},
+							"sink": {
+								"type": "SqlDWSink",
+								"allowCopyCommand": true,
+								"copyCommandSettings": {},
+								"tableOption": "autoCreate",
+								"disableMetricsCollection": false
+							},
+							"enableStaging": true,
+							"stagingSettings": {
+								"linkedServiceName": {
+									"referenceName": "AzureBlobStorage2",
+									"type": "LinkedServiceReference"
+								},
+								"path": "staging"
+							},
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "Currency",
+											"type": "String"
+										},
+										"sink": {
+											"name": "currency",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "Rate",
+											"type": "String"
+										},
+										"sink": {
+											"name": "rate_code",
+											"type": "String"
+										}
+									}
+								]
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "csvfilestorage",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "AzureSynapseAnalyticsTable1",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2024-03-26T13:40:49Z"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/datasets/csvfilestorage')]",
+				"[concat(variables('workspaceId'), '/datasets/AzureSynapseAnalyticsTable1')]",
+				"[concat(variables('workspaceId'), '/linkedServices/AzureBlobStorage2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/AzureSynapseAnalyticsTable1')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureSynapseAnalytics2",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlDWTable",
+				"schema": [
+					{
+						"name": "currency",
+						"type": "varchar"
+					},
+					{
+						"name": "rate_code",
+						"type": "varchar"
+					},
+					{
+						"name": "rate_value",
+						"type": "varchar"
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "data"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/AzureSynapseAnalytics2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/DelimitedText1')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureBlobStorage2",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobStorageLocation",
+						"container": "$web"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": [
+					{
+						"name": "currency",
+						"type": "String"
+					},
+					{
+						"name": "rate_code",
+						"type": "String"
+					}
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/AzureBlobStorage2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/DestinationDataset_pzy')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureBlobStorage1",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"cw_folderPath": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobStorageLocation",
+						"fileName": "data",
+						"folderPath": {
+							"value": "@dataset().cw_folderPath",
+							"type": "Expression"
+						},
+						"container": "transformed"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/AzureBlobStorage1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Jsonfilestorage')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureBlobStorage2",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "Json",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobStorageLocation",
+						"container": "dailydata"
+					}
+				},
+				"schema": {
+					"type": "object",
+					"properties": {
+						"data": {
+							"type": "object",
+							"properties": {
+								"currency": {
+									"type": "string"
+								},
+								"rates": {
+									"type": "object",
+									"properties": {
+										"00": {
+											"type": "string"
+										},
+										"1INCH": {
+											"type": "string"
+										},
+										"AAVE": {
+											"type": "string"
+										},
+										"ABT": {
+											"type": "string"
+										},
+										"ACH": {
+											"type": "string"
+										},
+										"ACS": {
+											"type": "string"
+										},
+										"ADA": {
+											"type": "string"
+										},
+										"AED": {
+											"type": "string"
+										},
+										"AERGO": {
+											"type": "string"
+										},
+										"AERO": {
+											"type": "string"
+										},
+										"AFN": {
+											"type": "string"
+										},
+										"AGLD": {
+											"type": "string"
+										},
+										"AIOZ": {
+											"type": "string"
+										},
+										"AKT": {
+											"type": "string"
+										},
+										"ALCX": {
+											"type": "string"
+										},
+										"ALEPH": {
+											"type": "string"
+										},
+										"ALGO": {
+											"type": "string"
+										},
+										"ALICE": {
+											"type": "string"
+										},
+										"ALL": {
+											"type": "string"
+										},
+										"AMD": {
+											"type": "string"
+										},
+										"AMP": {
+											"type": "string"
+										},
+										"ANG": {
+											"type": "string"
+										},
+										"ANKR": {
+											"type": "string"
+										},
+										"ANT": {
+											"type": "string"
+										},
+										"AOA": {
+											"type": "string"
+										},
+										"APE": {
+											"type": "string"
+										},
+										"API3": {
+											"type": "string"
+										},
+										"APT": {
+											"type": "string"
+										},
+										"ARB": {
+											"type": "string"
+										},
+										"ARPA": {
+											"type": "string"
+										},
+										"ARS": {
+											"type": "string"
+										},
+										"ASM": {
+											"type": "string"
+										},
+										"AST": {
+											"type": "string"
+										},
+										"ATA": {
+											"type": "string"
+										},
+										"ATOM": {
+											"type": "string"
+										},
+										"AUCTION": {
+											"type": "string"
+										},
+										"AUD": {
+											"type": "string"
+										},
+										"AUDIO": {
+											"type": "string"
+										},
+										"AURORA": {
+											"type": "string"
+										},
+										"AVAX": {
+											"type": "string"
+										},
+										"AVT": {
+											"type": "string"
+										},
+										"AWG": {
+											"type": "string"
+										},
+										"AXL": {
+											"type": "string"
+										},
+										"AXS": {
+											"type": "string"
+										},
+										"AZN": {
+											"type": "string"
+										},
+										"BADGER": {
+											"type": "string"
+										},
+										"BAL": {
+											"type": "string"
+										},
+										"BAM": {
+											"type": "string"
+										},
+										"BAND": {
+											"type": "string"
+										},
+										"BAT": {
+											"type": "string"
+										},
+										"BBD": {
+											"type": "string"
+										},
+										"BCH": {
+											"type": "string"
+										},
+										"BDT": {
+											"type": "string"
+										},
+										"BGN": {
+											"type": "string"
+										},
+										"BHD": {
+											"type": "string"
+										},
+										"BICO": {
+											"type": "string"
+										},
+										"BIF": {
+											"type": "string"
+										},
+										"BIGTIME": {
+											"type": "string"
+										},
+										"BIT": {
+											"type": "string"
+										},
+										"BLUR": {
+											"type": "string"
+										},
+										"BLZ": {
+											"type": "string"
+										},
+										"BMD": {
+											"type": "string"
+										},
+										"BND": {
+											"type": "string"
+										},
+										"BNT": {
+											"type": "string"
+										},
+										"BOB": {
+											"type": "string"
+										},
+										"BOBA": {
+											"type": "string"
+										},
+										"BOND": {
+											"type": "string"
+										},
+										"BONK": {
+											"type": "string"
+										},
+										"BRL": {
+											"type": "string"
+										},
+										"BSD": {
+											"type": "string"
+										},
+										"BSV": {
+											"type": "string"
+										},
+										"BTC": {
+											"type": "string"
+										},
+										"BTN": {
+											"type": "string"
+										},
+										"BTRST": {
+											"type": "string"
+										},
+										"BUSD": {
+											"type": "string"
+										},
+										"BWP": {
+											"type": "string"
+										},
+										"BYN": {
+											"type": "string"
+										},
+										"BYR": {
+											"type": "string"
+										},
+										"BZD": {
+											"type": "string"
+										},
+										"C98": {
+											"type": "string"
+										},
+										"CAD": {
+											"type": "string"
+										},
+										"CBETH": {
+											"type": "string"
+										},
+										"CDF": {
+											"type": "string"
+										},
+										"CELR": {
+											"type": "string"
+										},
+										"CGLD": {
+											"type": "string"
+										},
+										"CHF": {
+											"type": "string"
+										},
+										"CHZ": {
+											"type": "string"
+										},
+										"CLF": {
+											"type": "string"
+										},
+										"CLP": {
+											"type": "string"
+										},
+										"CLV": {
+											"type": "string"
+										},
+										"CNH": {
+											"type": "string"
+										},
+										"CNY": {
+											"type": "string"
+										},
+										"COMP": {
+											"type": "string"
+										},
+										"COP": {
+											"type": "string"
+										},
+										"COTI": {
+											"type": "string"
+										},
+										"COVAL": {
+											"type": "string"
+										},
+										"CRC": {
+											"type": "string"
+										},
+										"CRO": {
+											"type": "string"
+										},
+										"CRPT": {
+											"type": "string"
+										},
+										"CRV": {
+											"type": "string"
+										},
+										"CTSI": {
+											"type": "string"
+										},
+										"CTX": {
+											"type": "string"
+										},
+										"CUC": {
+											"type": "string"
+										},
+										"CUP": {
+											"type": "string"
+										},
+										"CVC": {
+											"type": "string"
+										},
+										"CVE": {
+											"type": "string"
+										},
+										"CVX": {
+											"type": "string"
+										},
+										"CZK": {
+											"type": "string"
+										},
+										"DAI": {
+											"type": "string"
+										},
+										"DAR": {
+											"type": "string"
+										},
+										"DASH": {
+											"type": "string"
+										},
+										"DDX": {
+											"type": "string"
+										},
+										"DESO": {
+											"type": "string"
+										},
+										"DEXT": {
+											"type": "string"
+										},
+										"DIA": {
+											"type": "string"
+										},
+										"DIMO": {
+											"type": "string"
+										},
+										"DJF": {
+											"type": "string"
+										},
+										"DKK": {
+											"type": "string"
+										},
+										"DNT": {
+											"type": "string"
+										},
+										"DOGE": {
+											"type": "string"
+										},
+										"DOP": {
+											"type": "string"
+										},
+										"DOT": {
+											"type": "string"
+										},
+										"DREP": {
+											"type": "string"
+										},
+										"DYP": {
+											"type": "string"
+										},
+										"DZD": {
+											"type": "string"
+										},
+										"EEK": {
+											"type": "string"
+										},
+										"EGLD": {
+											"type": "string"
+										},
+										"EGP": {
+											"type": "string"
+										},
+										"ELA": {
+											"type": "string"
+										},
+										"ENJ": {
+											"type": "string"
+										},
+										"ENS": {
+											"type": "string"
+										},
+										"EOS": {
+											"type": "string"
+										},
+										"ERN": {
+											"type": "string"
+										},
+										"ETB": {
+											"type": "string"
+										},
+										"ETC": {
+											"type": "string"
+										},
+										"ETH": {
+											"type": "string"
+										},
+										"ETH2": {
+											"type": "string"
+										},
+										"EUR": {
+											"type": "string"
+										},
+										"EUROC": {
+											"type": "string"
+										},
+										"FARM": {
+											"type": "string"
+										},
+										"FET": {
+											"type": "string"
+										},
+										"FIDA": {
+											"type": "string"
+										},
+										"FIL": {
+											"type": "string"
+										},
+										"FIS": {
+											"type": "string"
+										},
+										"FJD": {
+											"type": "string"
+										},
+										"FKP": {
+											"type": "string"
+										},
+										"FLOW": {
+											"type": "string"
+										},
+										"FLR": {
+											"type": "string"
+										},
+										"FORT": {
+											"type": "string"
+										},
+										"FORTH": {
+											"type": "string"
+										},
+										"FOX": {
+											"type": "string"
+										},
+										"FX": {
+											"type": "string"
+										},
+										"GAL": {
+											"type": "string"
+										},
+										"GALA": {
+											"type": "string"
+										},
+										"GBP": {
+											"type": "string"
+										},
+										"GEL": {
+											"type": "string"
+										},
+										"GFI": {
+											"type": "string"
+										},
+										"GGP": {
+											"type": "string"
+										},
+										"GHS": {
+											"type": "string"
+										},
+										"GHST": {
+											"type": "string"
+										},
+										"GIP": {
+											"type": "string"
+										},
+										"GLM": {
+											"type": "string"
+										},
+										"GMD": {
+											"type": "string"
+										},
+										"GMT": {
+											"type": "string"
+										},
+										"GNF": {
+											"type": "string"
+										},
+										"GNO": {
+											"type": "string"
+										},
+										"GNT": {
+											"type": "string"
+										},
+										"GODS": {
+											"type": "string"
+										},
+										"GRT": {
+											"type": "string"
+										},
+										"GST": {
+											"type": "string"
+										},
+										"GTC": {
+											"type": "string"
+										},
+										"GTQ": {
+											"type": "string"
+										},
+										"GUSD": {
+											"type": "string"
+										},
+										"GYD": {
+											"type": "string"
+										},
+										"GYEN": {
+											"type": "string"
+										},
+										"HBAR": {
+											"type": "string"
+										},
+										"HFT": {
+											"type": "string"
+										},
+										"HIGH": {
+											"type": "string"
+										},
+										"HKD": {
+											"type": "string"
+										},
+										"HNL": {
+											"type": "string"
+										},
+										"HNT": {
+											"type": "string"
+										},
+										"HONEY": {
+											"type": "string"
+										},
+										"HOPR": {
+											"type": "string"
+										},
+										"HRK": {
+											"type": "string"
+										},
+										"HTG": {
+											"type": "string"
+										},
+										"HUF": {
+											"type": "string"
+										},
+										"ICP": {
+											"type": "string"
+										},
+										"IDEX": {
+											"type": "string"
+										},
+										"IDR": {
+											"type": "string"
+										},
+										"ILS": {
+											"type": "string"
+										},
+										"ILV": {
+											"type": "string"
+										},
+										"IMP": {
+											"type": "string"
+										},
+										"IMX": {
+											"type": "string"
+										},
+										"INDEX": {
+											"type": "string"
+										},
+										"INJ": {
+											"type": "string"
+										},
+										"INR": {
+											"type": "string"
+										},
+										"INV": {
+											"type": "string"
+										},
+										"IOTX": {
+											"type": "string"
+										},
+										"IQD": {
+											"type": "string"
+										},
+										"IRR": {
+											"type": "string"
+										},
+										"ISK": {
+											"type": "string"
+										},
+										"JASMY": {
+											"type": "string"
+										},
+										"JEP": {
+											"type": "string"
+										},
+										"JMD": {
+											"type": "string"
+										},
+										"JOD": {
+											"type": "string"
+										},
+										"JPY": {
+											"type": "string"
+										},
+										"JTO": {
+											"type": "string"
+										},
+										"JUP": {
+											"type": "string"
+										},
+										"KAVA": {
+											"type": "string"
+										},
+										"KEEP": {
+											"type": "string"
+										},
+										"KES": {
+											"type": "string"
+										},
+										"KGS": {
+											"type": "string"
+										},
+										"KHR": {
+											"type": "string"
+										},
+										"KMF": {
+											"type": "string"
+										},
+										"KNC": {
+											"type": "string"
+										},
+										"KPW": {
+											"type": "string"
+										},
+										"KRL": {
+											"type": "string"
+										},
+										"KRW": {
+											"type": "string"
+										},
+										"KSM": {
+											"type": "string"
+										},
+										"KWD": {
+											"type": "string"
+										},
+										"KYD": {
+											"type": "string"
+										},
+										"KZT": {
+											"type": "string"
+										},
+										"LAK": {
+											"type": "string"
+										},
+										"LBP": {
+											"type": "string"
+										},
+										"LCX": {
+											"type": "string"
+										},
+										"LDO": {
+											"type": "string"
+										},
+										"LINK": {
+											"type": "string"
+										},
+										"LIT": {
+											"type": "string"
+										},
+										"LKR": {
+											"type": "string"
+										},
+										"LOKA": {
+											"type": "string"
+										},
+										"LOOM": {
+											"type": "string"
+										},
+										"LPT": {
+											"type": "string"
+										},
+										"LQTY": {
+											"type": "string"
+										},
+										"LRC": {
+											"type": "string"
+										},
+										"LRD": {
+											"type": "string"
+										},
+										"LSETH": {
+											"type": "string"
+										},
+										"LSL": {
+											"type": "string"
+										},
+										"LTC": {
+											"type": "string"
+										},
+										"LTL": {
+											"type": "string"
+										},
+										"LVL": {
+											"type": "string"
+										},
+										"LYD": {
+											"type": "string"
+										},
+										"MAD": {
+											"type": "string"
+										},
+										"MAGIC": {
+											"type": "string"
+										},
+										"MANA": {
+											"type": "string"
+										},
+										"MASK": {
+											"type": "string"
+										},
+										"MATH": {
+											"type": "string"
+										},
+										"MATIC": {
+											"type": "string"
+										},
+										"MCO2": {
+											"type": "string"
+										},
+										"MDL": {
+											"type": "string"
+										},
+										"MDT": {
+											"type": "string"
+										},
+										"MEDIA": {
+											"type": "string"
+										},
+										"METIS": {
+											"type": "string"
+										},
+										"MGA": {
+											"type": "string"
+										},
+										"MINA": {
+											"type": "string"
+										},
+										"MIR": {
+											"type": "string"
+										},
+										"MKD": {
+											"type": "string"
+										},
+										"MKR": {
+											"type": "string"
+										},
+										"MLN": {
+											"type": "string"
+										},
+										"MMK": {
+											"type": "string"
+										},
+										"MNDE": {
+											"type": "string"
+										},
+										"MNT": {
+											"type": "string"
+										},
+										"MOBILE": {
+											"type": "string"
+										},
+										"MONA": {
+											"type": "string"
+										},
+										"MOP": {
+											"type": "string"
+										},
+										"MPL": {
+											"type": "string"
+										},
+										"MRO": {
+											"type": "string"
+										},
+										"MRU": {
+											"type": "string"
+										},
+										"MSOL": {
+											"type": "string"
+										},
+										"MTL": {
+											"type": "string"
+										},
+										"MULTI": {
+											"type": "string"
+										},
+										"MUR": {
+											"type": "string"
+										},
+										"MUSE": {
+											"type": "string"
+										},
+										"MVR": {
+											"type": "string"
+										},
+										"MWK": {
+											"type": "string"
+										},
+										"MXC": {
+											"type": "string"
+										},
+										"MXN": {
+											"type": "string"
+										},
+										"MYR": {
+											"type": "string"
+										},
+										"MZN": {
+											"type": "string"
+										},
+										"NAD": {
+											"type": "string"
+										},
+										"NCT": {
+											"type": "string"
+										},
+										"NEAR": {
+											"type": "string"
+										},
+										"NEST": {
+											"type": "string"
+										},
+										"NGN": {
+											"type": "string"
+										},
+										"NIO": {
+											"type": "string"
+										},
+										"NKN": {
+											"type": "string"
+										},
+										"NMR": {
+											"type": "string"
+										},
+										"NOK": {
+											"type": "string"
+										},
+										"NPR": {
+											"type": "string"
+										},
+										"NU": {
+											"type": "string"
+										},
+										"NZD": {
+											"type": "string"
+										},
+										"OCEAN": {
+											"type": "string"
+										},
+										"OGN": {
+											"type": "string"
+										},
+										"OMG": {
+											"type": "string"
+										},
+										"OMR": {
+											"type": "string"
+										},
+										"ONDO": {
+											"type": "string"
+										},
+										"OOKI": {
+											"type": "string"
+										},
+										"OP": {
+											"type": "string"
+										},
+										"ORCA": {
+											"type": "string"
+										},
+										"ORN": {
+											"type": "string"
+										},
+										"OSMO": {
+											"type": "string"
+										},
+										"OXT": {
+											"type": "string"
+										},
+										"PAB": {
+											"type": "string"
+										},
+										"PAX": {
+											"type": "string"
+										},
+										"PEN": {
+											"type": "string"
+										},
+										"PERP": {
+											"type": "string"
+										},
+										"PGK": {
+											"type": "string"
+										},
+										"PHP": {
+											"type": "string"
+										},
+										"PKR": {
+											"type": "string"
+										},
+										"PLA": {
+											"type": "string"
+										},
+										"PLN": {
+											"type": "string"
+										},
+										"PLU": {
+											"type": "string"
+										},
+										"PNG": {
+											"type": "string"
+										},
+										"POLS": {
+											"type": "string"
+										},
+										"POLY": {
+											"type": "string"
+										},
+										"POND": {
+											"type": "string"
+										},
+										"POWR": {
+											"type": "string"
+										},
+										"PRIME": {
+											"type": "string"
+										},
+										"PRO": {
+											"type": "string"
+										},
+										"PRQ": {
+											"type": "string"
+										},
+										"PUNDIX": {
+											"type": "string"
+										},
+										"PYG": {
+											"type": "string"
+										},
+										"PYR": {
+											"type": "string"
+										},
+										"PYUSD": {
+											"type": "string"
+										},
+										"QAR": {
+											"type": "string"
+										},
+										"QI": {
+											"type": "string"
+										},
+										"QNT": {
+											"type": "string"
+										},
+										"QUICK": {
+											"type": "string"
+										},
+										"RAD": {
+											"type": "string"
+										},
+										"RAI": {
+											"type": "string"
+										},
+										"RARE": {
+											"type": "string"
+										},
+										"RARI": {
+											"type": "string"
+										},
+										"RBN": {
+											"type": "string"
+										},
+										"REN": {
+											"type": "string"
+										},
+										"RENDER": {
+											"type": "string"
+										},
+										"REP": {
+											"type": "string"
+										},
+										"REPV2": {
+											"type": "string"
+										},
+										"REQ": {
+											"type": "string"
+										},
+										"RGT": {
+											"type": "string"
+										},
+										"RLC": {
+											"type": "string"
+										},
+										"RLY": {
+											"type": "string"
+										},
+										"RNDR": {
+											"type": "string"
+										},
+										"RON": {
+											"type": "string"
+										},
+										"RONIN": {
+											"type": "string"
+										},
+										"ROSE": {
+											"type": "string"
+										},
+										"RPL": {
+											"type": "string"
+										},
+										"RSD": {
+											"type": "string"
+										},
+										"RUB": {
+											"type": "string"
+										},
+										"RWF": {
+											"type": "string"
+										},
+										"SAND": {
+											"type": "string"
+										},
+										"SAR": {
+											"type": "string"
+										},
+										"SBD": {
+											"type": "string"
+										},
+										"SCR": {
+											"type": "string"
+										},
+										"SDG": {
+											"type": "string"
+										},
+										"SEAM": {
+											"type": "string"
+										},
+										"SEI": {
+											"type": "string"
+										},
+										"SEK": {
+											"type": "string"
+										},
+										"SGD": {
+											"type": "string"
+										},
+										"SHIB": {
+											"type": "string"
+										},
+										"SHP": {
+											"type": "string"
+										},
+										"SHPING": {
+											"type": "string"
+										},
+										"SKK": {
+											"type": "string"
+										},
+										"SKL": {
+											"type": "string"
+										},
+										"SLL": {
+											"type": "string"
+										},
+										"SNT": {
+											"type": "string"
+										},
+										"SNX": {
+											"type": "string"
+										},
+										"SOL": {
+											"type": "string"
+										},
+										"SOS": {
+											"type": "string"
+										},
+										"SPA": {
+											"type": "string"
+										},
+										"SPELL": {
+											"type": "string"
+										},
+										"SRD": {
+											"type": "string"
+										},
+										"SSP": {
+											"type": "string"
+										},
+										"STD": {
+											"type": "string"
+										},
+										"STG": {
+											"type": "string"
+										},
+										"STORJ": {
+											"type": "string"
+										},
+										"STRK": {
+											"type": "string"
+										},
+										"STX": {
+											"type": "string"
+										},
+										"SUI": {
+											"type": "string"
+										},
+										"SUKU": {
+											"type": "string"
+										},
+										"SUPER": {
+											"type": "string"
+										},
+										"SUSHI": {
+											"type": "string"
+										},
+										"SVC": {
+											"type": "string"
+										},
+										"SWFTC": {
+											"type": "string"
+										},
+										"SYLO": {
+											"type": "string"
+										},
+										"SYN": {
+											"type": "string"
+										},
+										"SYP": {
+											"type": "string"
+										},
+										"SZL": {
+											"type": "string"
+										},
+										"T": {
+											"type": "string"
+										},
+										"THB": {
+											"type": "string"
+										},
+										"TIA": {
+											"type": "string"
+										},
+										"TIME": {
+											"type": "string"
+										},
+										"TJS": {
+											"type": "string"
+										},
+										"TMM": {
+											"type": "string"
+										},
+										"TMT": {
+											"type": "string"
+										},
+										"TND": {
+											"type": "string"
+										},
+										"TONE": {
+											"type": "string"
+										},
+										"TOP": {
+											"type": "string"
+										},
+										"TRAC": {
+											"type": "string"
+										},
+										"TRB": {
+											"type": "string"
+										},
+										"TRIBE": {
+											"type": "string"
+										},
+										"TRU": {
+											"type": "string"
+										},
+										"TRY": {
+											"type": "string"
+										},
+										"TTD": {
+											"type": "string"
+										},
+										"TVK": {
+											"type": "string"
+										},
+										"TWD": {
+											"type": "string"
+										},
+										"TZS": {
+											"type": "string"
+										},
+										"UAH": {
+											"type": "string"
+										},
+										"UGX": {
+											"type": "string"
+										},
+										"UMA": {
+											"type": "string"
+										},
+										"UNFI": {
+											"type": "string"
+										},
+										"UNI": {
+											"type": "string"
+										},
+										"UPI": {
+											"type": "string"
+										},
+										"USD": {
+											"type": "string"
+										},
+										"USDC": {
+											"type": "string"
+										},
+										"USDT": {
+											"type": "string"
+										},
+										"UST": {
+											"type": "string"
+										},
+										"UYU": {
+											"type": "string"
+										},
+										"UZS": {
+											"type": "string"
+										},
+										"VARA": {
+											"type": "string"
+										},
+										"VEF": {
+											"type": "string"
+										},
+										"VELO": {
+											"type": "string"
+										},
+										"VES": {
+											"type": "string"
+										},
+										"VET": {
+											"type": "string"
+										},
+										"VGX": {
+											"type": "string"
+										},
+										"VND": {
+											"type": "string"
+										},
+										"VOXEL": {
+											"type": "string"
+										},
+										"VTHO": {
+											"type": "string"
+										},
+										"VUV": {
+											"type": "string"
+										},
+										"WAMPL": {
+											"type": "string"
+										},
+										"WAXL": {
+											"type": "string"
+										},
+										"WBTC": {
+											"type": "string"
+										},
+										"WCFG": {
+											"type": "string"
+										},
+										"WLUNA": {
+											"type": "string"
+										},
+										"WST": {
+											"type": "string"
+										},
+										"XAF": {
+											"type": "string"
+										},
+										"XAG": {
+											"type": "string"
+										},
+										"XAU": {
+											"type": "string"
+										},
+										"XCD": {
+											"type": "string"
+										},
+										"XCN": {
+											"type": "string"
+										},
+										"XDR": {
+											"type": "string"
+										},
+										"XLM": {
+											"type": "string"
+										},
+										"XMON": {
+											"type": "string"
+										},
+										"XOF": {
+											"type": "string"
+										},
+										"XPD": {
+											"type": "string"
+										},
+										"XPF": {
+											"type": "string"
+										},
+										"XPT": {
+											"type": "string"
+										},
+										"XRP": {
+											"type": "string"
+										},
+										"XTZ": {
+											"type": "string"
+										},
+										"XYO": {
+											"type": "string"
+										},
+										"YER": {
+											"type": "string"
+										},
+										"YFI": {
+											"type": "string"
+										},
+										"YFII": {
+											"type": "string"
+										},
+										"ZAR": {
+											"type": "string"
+										},
+										"ZEC": {
+											"type": "string"
+										},
+										"ZEN": {
+											"type": "string"
+										},
+										"ZETA": {
+											"type": "string"
+										},
+										"ZMK": {
+											"type": "string"
+										},
+										"ZMW": {
+											"type": "string"
+										},
+										"ZRX": {
+											"type": "string"
+										},
+										"ZWD": {
+											"type": "string"
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/AzureBlobStorage2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SourceDataset_pzy')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureBlobStorage1",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "Json",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobStorageLocation",
+						"container": "dailydata"
+					}
+				},
+				"schema": {
+					"type": "object",
+					"properties": {
+						"data": {
+							"type": "object",
+							"properties": {
+								"currency": {
+									"type": "string"
+								},
+								"rates": {
+									"type": "object",
+									"properties": {
+										"00": {
+											"type": "string"
+										},
+										"1INCH": {
+											"type": "string"
+										},
+										"AAVE": {
+											"type": "string"
+										},
+										"ABT": {
+											"type": "string"
+										},
+										"ACH": {
+											"type": "string"
+										},
+										"ACS": {
+											"type": "string"
+										},
+										"ADA": {
+											"type": "string"
+										},
+										"AED": {
+											"type": "string"
+										},
+										"AERGO": {
+											"type": "string"
+										},
+										"AERO": {
+											"type": "string"
+										},
+										"AFN": {
+											"type": "string"
+										},
+										"AGLD": {
+											"type": "string"
+										},
+										"AIOZ": {
+											"type": "string"
+										},
+										"AKT": {
+											"type": "string"
+										},
+										"ALCX": {
+											"type": "string"
+										},
+										"ALEPH": {
+											"type": "string"
+										},
+										"ALGO": {
+											"type": "string"
+										},
+										"ALICE": {
+											"type": "string"
+										},
+										"ALL": {
+											"type": "string"
+										},
+										"AMD": {
+											"type": "string"
+										},
+										"AMP": {
+											"type": "string"
+										},
+										"ANG": {
+											"type": "string"
+										},
+										"ANKR": {
+											"type": "string"
+										},
+										"ANT": {
+											"type": "string"
+										},
+										"AOA": {
+											"type": "string"
+										},
+										"APE": {
+											"type": "string"
+										},
+										"API3": {
+											"type": "string"
+										},
+										"APT": {
+											"type": "string"
+										},
+										"ARB": {
+											"type": "string"
+										},
+										"ARPA": {
+											"type": "string"
+										},
+										"ARS": {
+											"type": "string"
+										},
+										"ASM": {
+											"type": "string"
+										},
+										"AST": {
+											"type": "string"
+										},
+										"ATA": {
+											"type": "string"
+										},
+										"ATOM": {
+											"type": "string"
+										},
+										"AUCTION": {
+											"type": "string"
+										},
+										"AUD": {
+											"type": "string"
+										},
+										"AUDIO": {
+											"type": "string"
+										},
+										"AURORA": {
+											"type": "string"
+										},
+										"AVAX": {
+											"type": "string"
+										},
+										"AVT": {
+											"type": "string"
+										},
+										"AWG": {
+											"type": "string"
+										},
+										"AXL": {
+											"type": "string"
+										},
+										"AXS": {
+											"type": "string"
+										},
+										"AZN": {
+											"type": "string"
+										},
+										"BADGER": {
+											"type": "string"
+										},
+										"BAL": {
+											"type": "string"
+										},
+										"BAM": {
+											"type": "string"
+										},
+										"BAND": {
+											"type": "string"
+										},
+										"BAT": {
+											"type": "string"
+										},
+										"BBD": {
+											"type": "string"
+										},
+										"BCH": {
+											"type": "string"
+										},
+										"BDT": {
+											"type": "string"
+										},
+										"BGN": {
+											"type": "string"
+										},
+										"BHD": {
+											"type": "string"
+										},
+										"BICO": {
+											"type": "string"
+										},
+										"BIF": {
+											"type": "string"
+										},
+										"BIGTIME": {
+											"type": "string"
+										},
+										"BIT": {
+											"type": "string"
+										},
+										"BLUR": {
+											"type": "string"
+										},
+										"BLZ": {
+											"type": "string"
+										},
+										"BMD": {
+											"type": "string"
+										},
+										"BND": {
+											"type": "string"
+										},
+										"BNT": {
+											"type": "string"
+										},
+										"BOB": {
+											"type": "string"
+										},
+										"BOBA": {
+											"type": "string"
+										},
+										"BOND": {
+											"type": "string"
+										},
+										"BONK": {
+											"type": "string"
+										},
+										"BRL": {
+											"type": "string"
+										},
+										"BSD": {
+											"type": "string"
+										},
+										"BSV": {
+											"type": "string"
+										},
+										"BTC": {
+											"type": "string"
+										},
+										"BTN": {
+											"type": "string"
+										},
+										"BTRST": {
+											"type": "string"
+										},
+										"BUSD": {
+											"type": "string"
+										},
+										"BWP": {
+											"type": "string"
+										},
+										"BYN": {
+											"type": "string"
+										},
+										"BYR": {
+											"type": "string"
+										},
+										"BZD": {
+											"type": "string"
+										},
+										"C98": {
+											"type": "string"
+										},
+										"CAD": {
+											"type": "string"
+										},
+										"CBETH": {
+											"type": "string"
+										},
+										"CDF": {
+											"type": "string"
+										},
+										"CELR": {
+											"type": "string"
+										},
+										"CGLD": {
+											"type": "string"
+										},
+										"CHF": {
+											"type": "string"
+										},
+										"CHZ": {
+											"type": "string"
+										},
+										"CLF": {
+											"type": "string"
+										},
+										"CLP": {
+											"type": "string"
+										},
+										"CLV": {
+											"type": "string"
+										},
+										"CNH": {
+											"type": "string"
+										},
+										"CNY": {
+											"type": "string"
+										},
+										"COMP": {
+											"type": "string"
+										},
+										"COP": {
+											"type": "string"
+										},
+										"COTI": {
+											"type": "string"
+										},
+										"COVAL": {
+											"type": "string"
+										},
+										"CRC": {
+											"type": "string"
+										},
+										"CRO": {
+											"type": "string"
+										},
+										"CRPT": {
+											"type": "string"
+										},
+										"CRV": {
+											"type": "string"
+										},
+										"CTSI": {
+											"type": "string"
+										},
+										"CTX": {
+											"type": "string"
+										},
+										"CUC": {
+											"type": "string"
+										},
+										"CUP": {
+											"type": "string"
+										},
+										"CVC": {
+											"type": "string"
+										},
+										"CVE": {
+											"type": "string"
+										},
+										"CVX": {
+											"type": "string"
+										},
+										"CZK": {
+											"type": "string"
+										},
+										"DAI": {
+											"type": "string"
+										},
+										"DAR": {
+											"type": "string"
+										},
+										"DASH": {
+											"type": "string"
+										},
+										"DDX": {
+											"type": "string"
+										},
+										"DESO": {
+											"type": "string"
+										},
+										"DEXT": {
+											"type": "string"
+										},
+										"DIA": {
+											"type": "string"
+										},
+										"DIMO": {
+											"type": "string"
+										},
+										"DJF": {
+											"type": "string"
+										},
+										"DKK": {
+											"type": "string"
+										},
+										"DNT": {
+											"type": "string"
+										},
+										"DOGE": {
+											"type": "string"
+										},
+										"DOP": {
+											"type": "string"
+										},
+										"DOT": {
+											"type": "string"
+										},
+										"DREP": {
+											"type": "string"
+										},
+										"DYP": {
+											"type": "string"
+										},
+										"DZD": {
+											"type": "string"
+										},
+										"EEK": {
+											"type": "string"
+										},
+										"EGLD": {
+											"type": "string"
+										},
+										"EGP": {
+											"type": "string"
+										},
+										"ELA": {
+											"type": "string"
+										},
+										"ENJ": {
+											"type": "string"
+										},
+										"ENS": {
+											"type": "string"
+										},
+										"EOS": {
+											"type": "string"
+										},
+										"ERN": {
+											"type": "string"
+										},
+										"ETB": {
+											"type": "string"
+										},
+										"ETC": {
+											"type": "string"
+										},
+										"ETH": {
+											"type": "string"
+										},
+										"ETH2": {
+											"type": "string"
+										},
+										"EUR": {
+											"type": "string"
+										},
+										"EUROC": {
+											"type": "string"
+										},
+										"FARM": {
+											"type": "string"
+										},
+										"FET": {
+											"type": "string"
+										},
+										"FIDA": {
+											"type": "string"
+										},
+										"FIL": {
+											"type": "string"
+										},
+										"FIS": {
+											"type": "string"
+										},
+										"FJD": {
+											"type": "string"
+										},
+										"FKP": {
+											"type": "string"
+										},
+										"FLOW": {
+											"type": "string"
+										},
+										"FLR": {
+											"type": "string"
+										},
+										"FORT": {
+											"type": "string"
+										},
+										"FORTH": {
+											"type": "string"
+										},
+										"FOX": {
+											"type": "string"
+										},
+										"FX": {
+											"type": "string"
+										},
+										"GAL": {
+											"type": "string"
+										},
+										"GALA": {
+											"type": "string"
+										},
+										"GBP": {
+											"type": "string"
+										},
+										"GEL": {
+											"type": "string"
+										},
+										"GFI": {
+											"type": "string"
+										},
+										"GGP": {
+											"type": "string"
+										},
+										"GHS": {
+											"type": "string"
+										},
+										"GHST": {
+											"type": "string"
+										},
+										"GIP": {
+											"type": "string"
+										},
+										"GLM": {
+											"type": "string"
+										},
+										"GMD": {
+											"type": "string"
+										},
+										"GMT": {
+											"type": "string"
+										},
+										"GNF": {
+											"type": "string"
+										},
+										"GNO": {
+											"type": "string"
+										},
+										"GNT": {
+											"type": "string"
+										},
+										"GODS": {
+											"type": "string"
+										},
+										"GRT": {
+											"type": "string"
+										},
+										"GST": {
+											"type": "string"
+										},
+										"GTC": {
+											"type": "string"
+										},
+										"GTQ": {
+											"type": "string"
+										},
+										"GUSD": {
+											"type": "string"
+										},
+										"GYD": {
+											"type": "string"
+										},
+										"GYEN": {
+											"type": "string"
+										},
+										"HBAR": {
+											"type": "string"
+										},
+										"HFT": {
+											"type": "string"
+										},
+										"HIGH": {
+											"type": "string"
+										},
+										"HKD": {
+											"type": "string"
+										},
+										"HNL": {
+											"type": "string"
+										},
+										"HNT": {
+											"type": "string"
+										},
+										"HONEY": {
+											"type": "string"
+										},
+										"HOPR": {
+											"type": "string"
+										},
+										"HRK": {
+											"type": "string"
+										},
+										"HTG": {
+											"type": "string"
+										},
+										"HUF": {
+											"type": "string"
+										},
+										"ICP": {
+											"type": "string"
+										},
+										"IDEX": {
+											"type": "string"
+										},
+										"IDR": {
+											"type": "string"
+										},
+										"ILS": {
+											"type": "string"
+										},
+										"ILV": {
+											"type": "string"
+										},
+										"IMP": {
+											"type": "string"
+										},
+										"IMX": {
+											"type": "string"
+										},
+										"INDEX": {
+											"type": "string"
+										},
+										"INJ": {
+											"type": "string"
+										},
+										"INR": {
+											"type": "string"
+										},
+										"INV": {
+											"type": "string"
+										},
+										"IOTX": {
+											"type": "string"
+										},
+										"IQD": {
+											"type": "string"
+										},
+										"IRR": {
+											"type": "string"
+										},
+										"ISK": {
+											"type": "string"
+										},
+										"JASMY": {
+											"type": "string"
+										},
+										"JEP": {
+											"type": "string"
+										},
+										"JMD": {
+											"type": "string"
+										},
+										"JOD": {
+											"type": "string"
+										},
+										"JPY": {
+											"type": "string"
+										},
+										"JTO": {
+											"type": "string"
+										},
+										"JUP": {
+											"type": "string"
+										},
+										"KAVA": {
+											"type": "string"
+										},
+										"KEEP": {
+											"type": "string"
+										},
+										"KES": {
+											"type": "string"
+										},
+										"KGS": {
+											"type": "string"
+										},
+										"KHR": {
+											"type": "string"
+										},
+										"KMF": {
+											"type": "string"
+										},
+										"KNC": {
+											"type": "string"
+										},
+										"KPW": {
+											"type": "string"
+										},
+										"KRL": {
+											"type": "string"
+										},
+										"KRW": {
+											"type": "string"
+										},
+										"KSM": {
+											"type": "string"
+										},
+										"KWD": {
+											"type": "string"
+										},
+										"KYD": {
+											"type": "string"
+										},
+										"KZT": {
+											"type": "string"
+										},
+										"LAK": {
+											"type": "string"
+										},
+										"LBP": {
+											"type": "string"
+										},
+										"LCX": {
+											"type": "string"
+										},
+										"LDO": {
+											"type": "string"
+										},
+										"LINK": {
+											"type": "string"
+										},
+										"LIT": {
+											"type": "string"
+										},
+										"LKR": {
+											"type": "string"
+										},
+										"LOKA": {
+											"type": "string"
+										},
+										"LOOM": {
+											"type": "string"
+										},
+										"LPT": {
+											"type": "string"
+										},
+										"LQTY": {
+											"type": "string"
+										},
+										"LRC": {
+											"type": "string"
+										},
+										"LRD": {
+											"type": "string"
+										},
+										"LSETH": {
+											"type": "string"
+										},
+										"LSL": {
+											"type": "string"
+										},
+										"LTC": {
+											"type": "string"
+										},
+										"LTL": {
+											"type": "string"
+										},
+										"LVL": {
+											"type": "string"
+										},
+										"LYD": {
+											"type": "string"
+										},
+										"MAD": {
+											"type": "string"
+										},
+										"MAGIC": {
+											"type": "string"
+										},
+										"MANA": {
+											"type": "string"
+										},
+										"MASK": {
+											"type": "string"
+										},
+										"MATH": {
+											"type": "string"
+										},
+										"MATIC": {
+											"type": "string"
+										},
+										"MCO2": {
+											"type": "string"
+										},
+										"MDL": {
+											"type": "string"
+										},
+										"MDT": {
+											"type": "string"
+										},
+										"MEDIA": {
+											"type": "string"
+										},
+										"METIS": {
+											"type": "string"
+										},
+										"MGA": {
+											"type": "string"
+										},
+										"MINA": {
+											"type": "string"
+										},
+										"MIR": {
+											"type": "string"
+										},
+										"MKD": {
+											"type": "string"
+										},
+										"MKR": {
+											"type": "string"
+										},
+										"MLN": {
+											"type": "string"
+										},
+										"MMK": {
+											"type": "string"
+										},
+										"MNDE": {
+											"type": "string"
+										},
+										"MNT": {
+											"type": "string"
+										},
+										"MOBILE": {
+											"type": "string"
+										},
+										"MONA": {
+											"type": "string"
+										},
+										"MOP": {
+											"type": "string"
+										},
+										"MPL": {
+											"type": "string"
+										},
+										"MRO": {
+											"type": "string"
+										},
+										"MRU": {
+											"type": "string"
+										},
+										"MSOL": {
+											"type": "string"
+										},
+										"MTL": {
+											"type": "string"
+										},
+										"MULTI": {
+											"type": "string"
+										},
+										"MUR": {
+											"type": "string"
+										},
+										"MUSE": {
+											"type": "string"
+										},
+										"MVR": {
+											"type": "string"
+										},
+										"MWK": {
+											"type": "string"
+										},
+										"MXC": {
+											"type": "string"
+										},
+										"MXN": {
+											"type": "string"
+										},
+										"MYR": {
+											"type": "string"
+										},
+										"MZN": {
+											"type": "string"
+										},
+										"NAD": {
+											"type": "string"
+										},
+										"NCT": {
+											"type": "string"
+										},
+										"NEAR": {
+											"type": "string"
+										},
+										"NEST": {
+											"type": "string"
+										},
+										"NGN": {
+											"type": "string"
+										},
+										"NIO": {
+											"type": "string"
+										},
+										"NKN": {
+											"type": "string"
+										},
+										"NMR": {
+											"type": "string"
+										},
+										"NOK": {
+											"type": "string"
+										},
+										"NPR": {
+											"type": "string"
+										},
+										"NU": {
+											"type": "string"
+										},
+										"NZD": {
+											"type": "string"
+										},
+										"OCEAN": {
+											"type": "string"
+										},
+										"OGN": {
+											"type": "string"
+										},
+										"OMG": {
+											"type": "string"
+										},
+										"OMR": {
+											"type": "string"
+										},
+										"ONDO": {
+											"type": "string"
+										},
+										"OOKI": {
+											"type": "string"
+										},
+										"OP": {
+											"type": "string"
+										},
+										"ORCA": {
+											"type": "string"
+										},
+										"ORN": {
+											"type": "string"
+										},
+										"OSMO": {
+											"type": "string"
+										},
+										"OXT": {
+											"type": "string"
+										},
+										"PAB": {
+											"type": "string"
+										},
+										"PAX": {
+											"type": "string"
+										},
+										"PEN": {
+											"type": "string"
+										},
+										"PERP": {
+											"type": "string"
+										},
+										"PGK": {
+											"type": "string"
+										},
+										"PHP": {
+											"type": "string"
+										},
+										"PKR": {
+											"type": "string"
+										},
+										"PLA": {
+											"type": "string"
+										},
+										"PLN": {
+											"type": "string"
+										},
+										"PLU": {
+											"type": "string"
+										},
+										"PNG": {
+											"type": "string"
+										},
+										"POLS": {
+											"type": "string"
+										},
+										"POLY": {
+											"type": "string"
+										},
+										"POND": {
+											"type": "string"
+										},
+										"POWR": {
+											"type": "string"
+										},
+										"PRIME": {
+											"type": "string"
+										},
+										"PRO": {
+											"type": "string"
+										},
+										"PRQ": {
+											"type": "string"
+										},
+										"PUNDIX": {
+											"type": "string"
+										},
+										"PYG": {
+											"type": "string"
+										},
+										"PYR": {
+											"type": "string"
+										},
+										"PYUSD": {
+											"type": "string"
+										},
+										"QAR": {
+											"type": "string"
+										},
+										"QI": {
+											"type": "string"
+										},
+										"QNT": {
+											"type": "string"
+										},
+										"QUICK": {
+											"type": "string"
+										},
+										"RAD": {
+											"type": "string"
+										},
+										"RAI": {
+											"type": "string"
+										},
+										"RARE": {
+											"type": "string"
+										},
+										"RARI": {
+											"type": "string"
+										},
+										"RBN": {
+											"type": "string"
+										},
+										"REN": {
+											"type": "string"
+										},
+										"RENDER": {
+											"type": "string"
+										},
+										"REP": {
+											"type": "string"
+										},
+										"REPV2": {
+											"type": "string"
+										},
+										"REQ": {
+											"type": "string"
+										},
+										"RGT": {
+											"type": "string"
+										},
+										"RLC": {
+											"type": "string"
+										},
+										"RLY": {
+											"type": "string"
+										},
+										"RNDR": {
+											"type": "string"
+										},
+										"RON": {
+											"type": "string"
+										},
+										"RONIN": {
+											"type": "string"
+										},
+										"ROSE": {
+											"type": "string"
+										},
+										"RPL": {
+											"type": "string"
+										},
+										"RSD": {
+											"type": "string"
+										},
+										"RUB": {
+											"type": "string"
+										},
+										"RWF": {
+											"type": "string"
+										},
+										"SAND": {
+											"type": "string"
+										},
+										"SAR": {
+											"type": "string"
+										},
+										"SBD": {
+											"type": "string"
+										},
+										"SCR": {
+											"type": "string"
+										},
+										"SDG": {
+											"type": "string"
+										},
+										"SEAM": {
+											"type": "string"
+										},
+										"SEI": {
+											"type": "string"
+										},
+										"SEK": {
+											"type": "string"
+										},
+										"SGD": {
+											"type": "string"
+										},
+										"SHIB": {
+											"type": "string"
+										},
+										"SHP": {
+											"type": "string"
+										},
+										"SHPING": {
+											"type": "string"
+										},
+										"SKK": {
+											"type": "string"
+										},
+										"SKL": {
+											"type": "string"
+										},
+										"SLL": {
+											"type": "string"
+										},
+										"SNT": {
+											"type": "string"
+										},
+										"SNX": {
+											"type": "string"
+										},
+										"SOL": {
+											"type": "string"
+										},
+										"SOS": {
+											"type": "string"
+										},
+										"SPA": {
+											"type": "string"
+										},
+										"SPELL": {
+											"type": "string"
+										},
+										"SRD": {
+											"type": "string"
+										},
+										"SSP": {
+											"type": "string"
+										},
+										"STD": {
+											"type": "string"
+										},
+										"STG": {
+											"type": "string"
+										},
+										"STORJ": {
+											"type": "string"
+										},
+										"STRK": {
+											"type": "string"
+										},
+										"STX": {
+											"type": "string"
+										},
+										"SUI": {
+											"type": "string"
+										},
+										"SUKU": {
+											"type": "string"
+										},
+										"SUPER": {
+											"type": "string"
+										},
+										"SUSHI": {
+											"type": "string"
+										},
+										"SVC": {
+											"type": "string"
+										},
+										"SWFTC": {
+											"type": "string"
+										},
+										"SYLO": {
+											"type": "string"
+										},
+										"SYN": {
+											"type": "string"
+										},
+										"SYP": {
+											"type": "string"
+										},
+										"SZL": {
+											"type": "string"
+										},
+										"T": {
+											"type": "string"
+										},
+										"THB": {
+											"type": "string"
+										},
+										"TIA": {
+											"type": "string"
+										},
+										"TIME": {
+											"type": "string"
+										},
+										"TJS": {
+											"type": "string"
+										},
+										"TMM": {
+											"type": "string"
+										},
+										"TMT": {
+											"type": "string"
+										},
+										"TND": {
+											"type": "string"
+										},
+										"TONE": {
+											"type": "string"
+										},
+										"TOP": {
+											"type": "string"
+										},
+										"TRAC": {
+											"type": "string"
+										},
+										"TRB": {
+											"type": "string"
+										},
+										"TRIBE": {
+											"type": "string"
+										},
+										"TRU": {
+											"type": "string"
+										},
+										"TRY": {
+											"type": "string"
+										},
+										"TTD": {
+											"type": "string"
+										},
+										"TVK": {
+											"type": "string"
+										},
+										"TWD": {
+											"type": "string"
+										},
+										"TZS": {
+											"type": "string"
+										},
+										"UAH": {
+											"type": "string"
+										},
+										"UGX": {
+											"type": "string"
+										},
+										"UMA": {
+											"type": "string"
+										},
+										"UNFI": {
+											"type": "string"
+										},
+										"UNI": {
+											"type": "string"
+										},
+										"UPI": {
+											"type": "string"
+										},
+										"USD": {
+											"type": "string"
+										},
+										"USDC": {
+											"type": "string"
+										},
+										"USDT": {
+											"type": "string"
+										},
+										"UST": {
+											"type": "string"
+										},
+										"UYU": {
+											"type": "string"
+										},
+										"UZS": {
+											"type": "string"
+										},
+										"VARA": {
+											"type": "string"
+										},
+										"VEF": {
+											"type": "string"
+										},
+										"VELO": {
+											"type": "string"
+										},
+										"VES": {
+											"type": "string"
+										},
+										"VET": {
+											"type": "string"
+										},
+										"VGX": {
+											"type": "string"
+										},
+										"VND": {
+											"type": "string"
+										},
+										"VOXEL": {
+											"type": "string"
+										},
+										"VTHO": {
+											"type": "string"
+										},
+										"VUV": {
+											"type": "string"
+										},
+										"WAMPL": {
+											"type": "string"
+										},
+										"WAXL": {
+											"type": "string"
+										},
+										"WBTC": {
+											"type": "string"
+										},
+										"WCFG": {
+											"type": "string"
+										},
+										"WLUNA": {
+											"type": "string"
+										},
+										"WST": {
+											"type": "string"
+										},
+										"XAF": {
+											"type": "string"
+										},
+										"XAG": {
+											"type": "string"
+										},
+										"XAU": {
+											"type": "string"
+										},
+										"XCD": {
+											"type": "string"
+										},
+										"XCN": {
+											"type": "string"
+										},
+										"XDR": {
+											"type": "string"
+										},
+										"XLM": {
+											"type": "string"
+										},
+										"XMON": {
+											"type": "string"
+										},
+										"XOF": {
+											"type": "string"
+										},
+										"XPD": {
+											"type": "string"
+										},
+										"XPF": {
+											"type": "string"
+										},
+										"XPT": {
+											"type": "string"
+										},
+										"XRP": {
+											"type": "string"
+										},
+										"XTZ": {
+											"type": "string"
+										},
+										"XYO": {
+											"type": "string"
+										},
+										"YER": {
+											"type": "string"
+										},
+										"YFI": {
+											"type": "string"
+										},
+										"YFII": {
+											"type": "string"
+										},
+										"ZAR": {
+											"type": "string"
+										},
+										"ZEC": {
+											"type": "string"
+										},
+										"ZEN": {
+											"type": "string"
+										},
+										"ZETA": {
+											"type": "string"
+										},
+										"ZMK": {
+											"type": "string"
+										},
+										"ZMW": {
+											"type": "string"
+										},
+										"ZRX": {
+											"type": "string"
+										},
+										"ZWD": {
+											"type": "string"
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/AzureBlobStorage1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SqlPoolTable1')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "SqlPoolTable",
+				"schema": [
+					{
+						"name": "currency",
+						"type": "varchar"
+					},
+					{
+						"name": "rate_code",
+						"type": "varchar"
+					}
+				],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "deso_view"
+				},
+				"sqlPool": {
+					"referenceName": "azulextrac",
+					"type": "SqlPoolReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/sqlPools/azulextrac')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/csvfilestorage')]",
+			"type": "Microsoft.Synapse/workspaces/datasets",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureBlobStorage2",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobStorageLocation",
+						"container": "dailydata"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": [
+					{
+						"name": "Currency",
+						"type": "String"
+					},
+					{
+						"name": "Rate",
+						"type": "String"
+					}
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/linkedServices/AzureBlobStorage2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/AzureBlobStorage1')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Pull data from blob storage",
+				"annotations": [],
+				"type": "AzureBlobStorage",
+				"typeProperties": {
+					"connectionString": "[parameters('AzureBlobStorage1_connectionString')]"
+				},
+				"connectVia": {
+					"referenceName": "IntegrationRuntime1",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/IntegrationRuntime1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/AzureBlobStorage2')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobStorage",
+				"typeProperties": {
+					"sasUri": "[parameters('AzureBlobStorage2_sasUri')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/AzureSynapseAnalytics2')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureSqlDW",
+				"typeProperties": {
+					"connectionString": "[parameters('AzureSynapseAnalytics2_connectionString')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/azulworkspace-WorkspaceDefaultSqlServer')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"parameters": {
+					"DBName": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlDW",
+				"typeProperties": {
+					"connectionString": "[parameters('azulworkspace-WorkspaceDefaultSqlServer_connectionString')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/azulworkspace-WorkspaceDefaultStorage')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('azulworkspace-WorkspaceDefaultStorage_properties_typeProperties_url')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Trigger 1')]",
+			"type": "Microsoft.Synapse/workspaces/triggers",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Trigger every hour",
+				"annotations": [],
+				"runtimeState": "Started",
+				"pipelines": [
+					{
+						"pipelineReference": {
+							"referenceName": "blobtosynapse",
+							"type": "PipelineReference"
+						},
+						"parameters": {}
+					}
+				],
+				"type": "ScheduleTrigger",
+				"typeProperties": {
+					"recurrence": {
+						"frequency": "Hour",
+						"interval": 2,
+						"startTime": "2024-03-26T13:50:00",
+						"timeZone": "India Standard Time"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/pipelines/blobtosynapse')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/Trigger 2')]",
+			"type": "Microsoft.Synapse/workspaces/triggers",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"description": "Pushes back to blob",
+				"annotations": [],
+				"runtimeState": "Started",
+				"pipelines": [
+					{
+						"pipelineReference": {
+							"referenceName": "Pipeline 1",
+							"type": "PipelineReference"
+						},
+						"parameters": {}
+					}
+				],
+				"type": "ScheduleTrigger",
+				"typeProperties": {
+					"recurrence": {
+						"frequency": "Hour",
+						"interval": 3,
+						"startTime": "2024-03-26T18:59:00",
+						"timeZone": "India Standard Time"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/pipelines/Pipeline 1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/AutoResolveIntegrationRuntime')]",
+			"type": "Microsoft.Synapse/workspaces/integrationRuntimes",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "Managed",
+				"typeProperties": {
+					"computeProperties": {
+						"location": "AutoResolve",
+						"dataFlowProperties": {
+							"computeType": "General",
+							"coreCount": 8,
+							"timeToLive": 0
+						}
+					}
+				},
+				"managedVirtualNetwork": {
+					"type": "ManagedVirtualNetworkReference",
+					"referenceName": "default"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/managedVirtualNetworks/default')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/IntegrationRuntime1')]",
+			"type": "Microsoft.Synapse/workspaces/integrationRuntimes",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "Managed",
+				"typeProperties": {
+					"computeProperties": {
+						"location": "AutoResolve",
+						"dataFlowProperties": {
+							"computeType": "General",
+							"coreCount": 8,
+							"timeToLive": 10,
+							"cleanup": false
+						},
+						"pipelineExternalComputeScaleProperties": {
+							"timeToLive": 60,
+							"numberOfPipelineNodes": 1,
+							"numberOfExternalNodes": 1
+						}
+					}
+				},
+				"managedVirtualNetwork": {
+					"type": "ManagedVirtualNetworkReference",
+					"referenceName": "default"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/managedVirtualNetworks/default')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/WorkspaceSystemIdentity')]",
+			"type": "Microsoft.Synapse/workspaces/credentials",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "ManagedIdentity",
+				"typeProperties": {}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/default')]",
+			"type": "Microsoft.Synapse/workspaces/managedVirtualNetworks",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SQL script 1')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": "CREATE TABLE [dbo].[data]\n(\n    currency VARCHAR(255),\n    rate_code VARCHAR(255),\n    rate_value VARCHAR(255)\n)\nWITH\n(\n    DISTRIBUTION = HASH (currency),\n    CLUSTERED COLUMNSTORE INDEX\n)\nGO\n",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"databaseName": "azulextrac",
+						"poolName": "azulextrac"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SQL script 2')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": "DROP TABLE [dbo].[Table]\nGO\n\n",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"databaseName": "azulextrac",
+						"poolName": "azulextrac"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SQL script 3')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": "SELECT TOP (100) [currency]\n,[rate_code]\n,[rate_value]\n FROM [dbo].[data]",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"databaseName": "azulextrac",
+						"poolName": "azulextrac"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SQL script 4')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": "SELECT TOP (100) [currency]\n,[rate_code]\n,[rate_value]\n FROM [dbo].[data]",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"databaseName": "azulextrac",
+						"poolName": "azulextrac"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SQL script 5')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": "SELECT TOP (460) [currency]\n,[rate_code]\n,[rate_value]\n FROM [dbo].[data]",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"databaseName": "azulextrac",
+						"poolName": "azulextrac"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SQL script 6')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": "CREATE VIEW [dbo].[View1]\n\tAS SELECT TOP (460) [currency],[rate_code],[rate_value] FROM [dbo].[data]\n",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"databaseName": "azulextrac",
+						"poolName": "azulextrac"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/azulextrac')]",
+			"type": "Microsoft.Synapse/workspaces/sqlPools",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"collation": "SQL_Latin1_General_CP1_CI_AS",
+				"maxSizeBytes": 263882790666240,
+				"annotations": []
+			},
+			"dependsOn": [],
+			"location": "centralus"
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/default/synapse-ws-custstgacct--azulworkspace-dailydataset')]",
+			"type": "Microsoft.Synapse/workspaces/managedVirtualNetworks/managedPrivateEndpoints",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"privateLinkResourceId": "/subscriptions/ce629e92-6625-4cb5-aa33-dfcdc4a2afe0/resourceGroups/azul/providers/Microsoft.Storage/storageAccounts/dailydataset",
+				"groupId": "dfs"
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/managedVirtualNetworks/default')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/default/synapse-ws-sql--azulworkspace')]",
+			"type": "Microsoft.Synapse/workspaces/managedVirtualNetworks/managedPrivateEndpoints",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"privateLinkResourceId": "/subscriptions/ce629e92-6625-4cb5-aa33-dfcdc4a2afe0/resourceGroups/azul/providers/Microsoft.Synapse/workspaces/azulworkspace",
+				"groupId": "sql",
+				"fqdns": [
+					"azulworkspace.3edc34f0-ca8e-4692-8397-72e901ad165d.sql.azuresynapse.net"
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/managedVirtualNetworks/default')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/default/synapse-ws-sqlOnDemand--azulworkspace')]",
+			"type": "Microsoft.Synapse/workspaces/managedVirtualNetworks/managedPrivateEndpoints",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"privateLinkResourceId": "/subscriptions/ce629e92-6625-4cb5-aa33-dfcdc4a2afe0/resourceGroups/azul/providers/Microsoft.Synapse/workspaces/azulworkspace",
+				"groupId": "sqlOnDemand",
+				"fqdns": [
+					"azulworkspace-ondemand.3edc34f0-ca8e-4692-8397-72e901ad165d.sql.azuresynapse.net"
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/managedVirtualNetworks/default')]"
+			]
+		}
+	]
+}
