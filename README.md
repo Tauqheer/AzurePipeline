@@ -31,7 +31,7 @@ This Azure pipeline is designed to automate the process of pulling hourly datase
 
 1. **Issue 1**:
    - Description: Ansible not working on azure cli and Azure vms(Missing modules)
-   - Resolution: Had to build things through the UI and download the templates which could be used to automate if required.
+   - Resolution: Had to build things through the UI and download the templates which could be used to automate if required. Tried building a pipeline through azure devops but the request was rejected multiple times for prallelism.
    - https://github.com/MicrosoftDocs/azure-dev-docs/issues/1316
    - https://stackoverflow.com/questions/66335800/error-couldnt-resolve-module-action-this-often-indicates-a-misspelling-miss
 
