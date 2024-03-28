@@ -3,7 +3,7 @@
 	"properties": {
 		"description": "Trigger every hour",
 		"annotations": [],
-		"runtimeState": "Started",
+		"runtimeState": "Stopped",
 		"pipelines": [
 			{
 				"pipelineReference": {
